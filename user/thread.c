@@ -15,7 +15,7 @@ int thread_create(void *(start_routine)(void *), void *arg) {
   // create user stack of PGSIZE bytes
   char *c = sbrk(PGSIZE);
   // call clone
-  int pid = clone((void *)c);
+  int pid = clone((void *)c + PGSIZE);
   printf("returned pid value: %d\n", pid);
   // for parent: return 0 on success and -1 on failure
   if (pid == -1) {
@@ -29,9 +29,6 @@ int thread_create(void *(start_routine)(void *), void *arg) {
   // for child: - call start routine to start thread execution with input arg
   //            - when returns, terminate child thread by calling 'exit()'
   else {
-    while(1) {
-      printf("in child\n");
-    }
     printf("executing start routine\n");
     start_routine(arg);
     exit(0);
