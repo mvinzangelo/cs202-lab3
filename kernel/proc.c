@@ -682,16 +682,98 @@ procdump(void)
   }
 }
 
+int alloctid()
+{
+  struct proc *p;
+  p = myproc();
+  int tid;
+
+  acquire(&p->lock);
+  tid = p->nexttid;
+  // check if we have the maximum number of threads created (max is 20)
+  if (tid > 20) {
+    release(&p->lock);
+    return -1;
+  }
+  else {
+    p->nexttid = p->nexttid + 1;
+  }
+  release(&p->lock);
+
+  return tid;
+}
+
+// Look in the process table for an UNUSED proc.
+// If found, initialize state required to run in the kernel,
+// and return with p->lock held.
+// If there are no free procs, or a memory allocation fails, return 0.
+static struct proc*
+allocproc_thread(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == UNUSED) {
+      goto found;
+    } else {
+      release(&p->lock);
+    }
+  }
+  return 0;
+
+found:
+  p->thread_id = alloctid();
+  if (p->thread_id == -1) {
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  p->pid = allocpid();
+  p->state = USED;
+
+  // Allocate a trapframe page.
+  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&p->context, 0, sizeof(p->context));
+  p->context.ra = (uint64)forkret;
+  p->context.sp = p->kstack + PGSIZE;
+
+  return p;
+}
 
 int clone(void* stack) {
+
+  // check if argument is present
+  if (!stack) {
+    return -1;
+  }
+
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
 
   // Allocate process.
-  if((np = allocproc()) == 0){
+  if((np = allocproc_thread()) == 0){
+    freeproc(np);
+    release(&np->lock);
     return -1;
   }
+
+  if (mappages(np->pagetable, TRAPFRAME - PGSIZE * (np->thread_id), PGSIZE,
+               (uint64)(np->trapframe), PTE_R | PTE_W) < 0)
+  {
+    return 0;
+  }
+
+  // use the same pagetable
+  np->pagetable = p->pagetable;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -703,8 +785,9 @@ int clone(void* stack) {
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
+  np->trapframe->sp = (uint64) stack;
 
-  // Cause fork to return 0 in the child.
+  // Cause clone to return 0 in the child.
   np->trapframe->a0 = 0;
 
   // increment reference counts on open file descriptors.
