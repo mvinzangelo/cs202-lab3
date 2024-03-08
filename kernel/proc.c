@@ -793,7 +793,7 @@ int clone(void* stack) {
   struct proc *np;
   struct proc *p = myproc();
 
-  printf("creating thread with pid=%d\n", p->pid);
+  // printf("creating thread with pid=%d\n", p->pid);
 
   // Allocate process but not the pagetable
   if((np = allocproc_thread()) == 0){
@@ -802,13 +802,13 @@ int clone(void* stack) {
     return -1;
   }
 
-  printf("created pcb for pid=%d, tid=%d\n", np->pid, np->thread_id);
+  // printf("created pcb for pid=%d, tid=%d\n", np->pid, np->thread_id);
 
   // use the same pagetable
   np->pagetable = p->pagetable;
   np->sz = p->sz;
 
-  printf("allocating trapframe for thread %d\n", np->thread_id);
+  // printf("allocating trapframe for thread %d\n", np->thread_id);
   // Allocate a trapframe page.
   if((np->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc_thread(np);
@@ -816,7 +816,7 @@ int clone(void* stack) {
     return -1;
   }
 
-  printf("mapping trapframe for thread %d\n", np->thread_id);
+  // printf("mapping trapframe for thread %d\n", np->thread_id);
   // Map the created trampframe based on the thread id
   if (mappages(np->pagetable, TRAPFRAME - PGSIZE * (np->thread_id), PGSIZE,
                (uint64)(np->trapframe), PTE_R | PTE_W) < 0)
@@ -824,7 +824,7 @@ int clone(void* stack) {
     return -1;
   }
 
-  printf("finished mapping trapframe for thread %d\n", np->thread_id);
+  // printf("finished mapping trapframe for thread %d\n", np->thread_id);
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
   np->trapframe->sp = (uint64) stack;
@@ -852,7 +852,7 @@ int clone(void* stack) {
   np->state = RUNNABLE;
   release(&np->lock);
 
-  printf("completed clone %d with a return value of pid = %d\n", np->thread_id, pid);
+  // printf("completed clone %d with a return value of pid = %d\n", np->thread_id, pid);
 
   return pid;
 }
