@@ -171,6 +171,25 @@ freeproc(struct proc *p)
   p->state = UNUSED;
 }
 
+static void
+freeproc_thread(struct proc *p)
+{
+  // free and unmap only trapframe
+  if(p->trapframe)
+    kfree((void*)p->trapframe);
+  uvmunmap(p->pagetable, TRAPFRAME - PGSIZE * (p->thread_id), 1, 0);
+  p->trapframe = 0;
+  p->pagetable = 0;
+  p->sz = 0;
+  p->pid = 0;
+  p->parent = 0;
+  p->name[0] = 0;
+  p->chan = 0;
+  p->killed = 0;
+  p->xstate = 0;
+  p->state = UNUSED;
+}
+
 // Create a user page table for a given process, with no user memory,
 // but with trampoline and trapframe pages.
 pagetable_t
@@ -405,7 +424,7 @@ wait(uint64 addr)
         acquire(&pp->lock);
 
         havekids = 1;
-        if(pp->state == ZOMBIE){
+        if(pp->state == ZOMBIE && pp->thread_id == 0){
           // Found one.
           pid = pp->pid;
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
@@ -415,6 +434,20 @@ wait(uint64 addr)
             return -1;
           }
           freeproc(pp);
+          release(&pp->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        else if(pp->state == ZOMBIE && pp->thread_id > 0){
+          // Found one.
+          pid = pp->pid;
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
+                                  sizeof(pp->xstate)) < 0) {
+            release(&pp->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc_thread(pp);
           release(&pp->lock);
           release(&wait_lock);
           return pid;
