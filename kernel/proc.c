@@ -600,7 +600,6 @@ sleep(void *chan, struct spinlock *lk)
   release(&p->lock);
   acquire(lk);
 }
-
 // Wake up all processes sleeping on chan.
 // Must be called without any p->lock.
 void
@@ -763,13 +762,14 @@ allocproc_thread(void)
   return 0;
 
 found:
+  // set thread_id
   p->thread_id = alloctid();
-  printf("foudnd tid = %d\n", p->thread_id);
   if (p->thread_id == -1) {
     freeproc_thread(p);
     release(&p->lock);
     return 0;
   }
+
   p->pid = allocpid();
   p->state = USED;
 
@@ -795,7 +795,7 @@ int clone(void* stack) {
 
   printf("creating thread with pid=%d\n", p->pid);
 
-  // Allocate process.
+  // Allocate process but not the pagetable
   if((np = allocproc_thread()) == 0){
     freeproc_thread(np);
     release(&np->lock);
@@ -807,14 +807,6 @@ int clone(void* stack) {
   // use the same pagetable
   np->pagetable = p->pagetable;
   np->sz = p->sz;
-
-  // Copy user memory from parent to child.
-  // printf("copy memory from parent to child thread %d\n", np->thread_id);
-  // if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
-  //   freeproc_thread(np);
-  //   release(&np->lock);
-  //   return -1;
-  // }
 
   printf("allocating trapframe for thread %d\n", np->thread_id);
   // Allocate a trapframe page.
