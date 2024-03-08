@@ -89,3 +89,12 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// return pid to parent, 0 to child
+uint64
+sys_clone(void)
+{
+  void *stack;
+  argaddr(0, (uint64 *)&stack);
+  return clone(stack);
+}

@@ -681,3 +681,8 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+int clone(void* stack) {
+  return 0;
+}
